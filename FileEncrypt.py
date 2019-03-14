@@ -104,13 +104,15 @@ def MyFileDecrypt(filepath, IV, key, ext):
 
     return message, IV, key
 
-def MyEncryptMAC(message, EncKey, HMACKey):
+def MyEncryptMAC(message, HMACKey):
     
     #create HMAC object
     h = hmac.HMAC(HMACKey, hashes.SHA256(), backend=default_backend())
     
-    tag = h.update(message)
+    C = h.update(message)
     h.finalize()
+    
+    tag = h ( k || h ( k ||m) ) 
     
     return C, IV, tag
 
@@ -123,7 +125,7 @@ def MyFileEncryptMAC(filepath):
     HMACKeyLength = 32
     HMACKey = os.urandom(HMACKeyLength)
     
-    #HMAC
+    #then HMAC
     C, IV, tag = MyEncryptMAC(C, Enckey, HMACKey)
     
     return C, IV, tag, EncKey, HMACKey, ext
@@ -158,6 +160,6 @@ def main():
    #C, IV, key, ext = MyFileEncrypt(testFile)
    #MyFileDecrypt(testFile, IV, key, ext)
    
-   
+   ###
     
 main() /////
