@@ -6,23 +6,24 @@ from cryptography.hazmat.primitives import hashes, hmac
 import json
 
 def MyEncrypt(message, key):
-    #checking key length
+    #checking key length for 32 bytes
     if(len(key) < 32):
         raise ValueError("Key less than 32 Bytes!")
     
     #assigning values
     IVLegnth = 16
-    IV = os.urandom(IVLength)
+    IV = os.urandom(IVLength) // generate IV (size of ciphertext)
     backend = default_backend()
     
-    #create cipher object
+    #create cipher object, take in algorithm, node, and backend from Cipher library
     cipher = Cipher(algorithms.AES(key), modes.CBC(IV), backend=backend)
     
-    #make encryptor
+    #make encryptor, encrypts the plaintext and generates associated Cipertext
     encryptor = cipher.encryptor()
     
     #encrypt message
     C = encryptor.update(message) + encryptor.finalize()
+    #return Cipertext and IV
     return C, IV
 
 def MyFileEncrypt(filepath):
