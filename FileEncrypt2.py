@@ -53,6 +53,7 @@ def MyFileEncrypt(filepath):
     file.close()
     
     return C, IV, key, ext
+<<<<<<< HEAD
 
 def MyEncryptMAC(message, EncKey, HMACKey):
     
@@ -66,6 +67,21 @@ def MyEncryptMAC(message, EncKey, HMACKey):
     
     return C, IV, tag
 
+=======
+
+def MyEncryptMAC(message, EncKey, HMACKey):
+    
+    #get ciphertext and IV
+    C, IV = MyEncrypt(message, EncKey)
+    
+    #create HMAC object to make tag
+    h = hmac.HMAC(HMACKey, hashes.SHA256(), backend=default_backend())
+    h.update(C)
+    tag = h.finalize()
+    
+    return C, IV, tag
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
 def MyFileEncryptMAC(filepath):
     
     #create Keys
@@ -100,7 +116,11 @@ def MyFileEncryptMAC(filepath):
     with open(filenameJSON, "w") as outfile:
         json.dump(encData, outfile)
         outfile.close()
+<<<<<<< HEAD
     
+=======
+        
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     #delete original file
     os.remove(filepath)
     
@@ -118,7 +138,11 @@ def MyDecrypt(C, IV, key):
     
     #decrypt ciphertext
     plaintext_padded = decryptor.update(C) + decryptor.finalize()
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     #unpad message
     unpadder = padding.PKCS7(128).unpadder()
     plaintext = unpadder.update(plaintext_padded) + unpadder.finalize()
@@ -126,20 +150,32 @@ def MyDecrypt(C, IV, key):
     return plaintext
 
 def MyFileDecrypt(filepath, IV, key, ext):
+<<<<<<< HEAD
     #getting file name and extension
+=======
+     #getting file name and extension
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     filename_ext = os.path.basename(filepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
     
     file = open(filepath, "rb")
     C = file.read()
     file.close()
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     message = MyDecrypt(C, IV, key)
     
     writefile = open(filepath, "wb")
     writefile.write(message)
     writefile.close()
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     return message, IV, key
 
 def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
@@ -156,6 +192,7 @@ def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
     return message
 
 def MyFileDecryptMAC(originalfilepath, HMACKey):
+<<<<<<< HEAD
     #getting file name and extension
     filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
@@ -185,6 +222,37 @@ message = MyDecryptMAC(C, IV, tag, HMACKey, EncKey)
     
     return message
 
+=======
+     #getting file name and extension
+    filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
+    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    
+    jsonFile = filename + ".json"
+    
+    #open file to decrypt
+    with open(jsonFile) as decryptFile:
+        data = json.load(decryptFile)
+        decryptFile.close()
+    
+    #getting data from dictionary
+    C = (data['C']).encode('cp437')
+    IV = (data['IV']).encode('cp437')
+    tag = (data['tag']).encode('cp437')
+    EncKey = (data['EncKey']).encode('cp437')
+        
+    message = MyDecryptMAC(C, IV, tag, HMACKey, EncKey)
+    
+    #write recovered data to file
+    recoveredFile = open(originalfilepath, "wb")
+    recoveredFile.write(message)
+    recoveredFile.close()
+    
+    #remove json file
+    os.remove(jsonFile)
+
+    return message
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
 #------------------------------------------------------------------------------
 
 def main():
@@ -202,4 +270,8 @@ def main():
     
     MyFileDecryptMAC(testFile, HMACKey)
     print("\nFile decrypted!")
+<<<<<<< HEAD
 main()
+=======
+main()
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
