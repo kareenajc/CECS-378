@@ -11,9 +11,15 @@ def MyEncrypt(message, key):
         raise ValueError("Key less than 32 Bytes!")
     
     #assigning values
-    IVLegnth = 16
+    IVLength = 16
     IV = os.urandom(IVLength)
     backend = default_backend()
+    
+    #initialize padder
+    padder = padding.PKCS7(128).padder()
+    
+    #pad data to fit block size
+    message = padder.update(message) + padder.finalize()
     
     #create cipher object
     cipher = Cipher(algorithms.AES(key), modes.CBC(IV), backend=backend)
@@ -39,34 +45,68 @@ def MyFileEncrypt(filepath):
     m = file.read()
     file.close()
     
-    #initialize padder
-    padder = padding.PKCS7(128).padder()
-    
-    #pad data to fit block size
-    m = padder.update(m) + padder.finalize()
-    
     #calling encryption method
     C, IV = MyEncrypt(m, key)
     
-    #storing values
-    encData = {"C": str(C), "IV": str(IV), "key": str(key), "ext": ext}
-    print(encData)
+    file = open(filepath, "wb")
+    file.write(C)
+    file.close()
+    
+    return C, IV, key, ext
 
-    #delete file
-    #os.remove(filepath)
+def MyEncryptMAC(message, EncKey, HMACKey):
+    
+    #get ciphertext and IV
+    C, IV = MyEncrypt(message, EncKey)
+    
+    #create HMAC object to make tag
+    h = hmac.HMAC(HMACKey, hashes.SHA256(), backend=default_backend())
+    h.update(C)
+    tag = h.finalize()
+    
+    return C, IV, tag
+
+def MyFileEncryptMAC(filepath):
+    
+    #create Keys
+    KeyLength = 32
+    HMACKey = os.urandom(KeyLength)
+    EncKey = os.urandom(KeyLength)
+    
+    if len(EncKey) < KeyLength:
+        raise Exception("EncKey less than 32 bytes!")
+    if len(HMACKey) < KeyLength:
+        raise Exception("HMACKey less than 32 bytes!")
+    
+    #open and read file to encrypt
+    file = open(filepath, "rb")
+    m = file.read()
+    file.close()
+    
+    #getting file name and extension
+    filename_ext = os.path.basename(filepath) #gets file name with extension from path
+    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    
+    #encrypt & MAC
+    C, IV, tag = MyEncryptMAC(m, EncKey, HMACKey)
+    
+    #storing values
+    encData = {"C": C.decode('cp437'), "IV": IV.decode('cp437'), "EncKey": EncKey.decode('cp437'), "ext": ext, "tag": tag.decode('cp437')}
     
     #create and write to json
-    '''filenameJSON = filename + ".json"
-    newFile = open(filenameJSON, "w")
+    filenameJSON = filename + ".json"
     
     #write json data to file
     with open(filenameJSON, "w") as outfile:
-        json.dump(encData, outfile, ensure_ascii=False, indent=3)
-        
-    #with open(filenameJSON) as json_file:
-    #    data = json.load(json_file)'''
-        
-    return C, IV, key, ext
+        json.dump(encData, outfile)
+        outfile.close()
+    
+    #delete original file
+    os.remove(filepath)
+    
+    return C, IV, tag, EncKey, HMACKey, ext
+
+#------------------------------------------------------------------------------
 
 def MyDecrypt(C, IV, key):
     #make cipher
@@ -77,89 +117,89 @@ def MyDecrypt(C, IV, key):
     decryptor = cipher.decryptor()
     
     #decrypt ciphertext
-    plaintext = decryptor.update(C) + decryptor.finalize()
-
+    plaintext_padded = decryptor.update(C) + decryptor.finalize()
+    
     #unpad message
     unpadder = padding.PKCS7(128).unpadder()
-    plaintext = unpadder.update(message) + unpadder.finalize()
+    plaintext = unpadder.update(plaintext_padded) + unpadder.finalize()
     
     return plaintext
 
 def MyFileDecrypt(filepath, IV, key, ext):
+    #getting file name and extension
     filename_ext = os.path.basename(filepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
     
-    jsonFile = filename + ".json"
-    print(jsonFile)
-    
-    #open file to decrypt
-    file = open(jsonFile, "rb")
+    file = open(filepath, "rb")
     C = file.read()
-    print(C)
-
+    file.close()
+    
     message = MyDecrypt(C, IV, key)
-
+    
     writefile = open(filepath, "wb")
     writefile.write(message)
-
+    writefile.close()
+    
     return message, IV, key
 
-def MyEncryptMAC(message, HMACKey):
+def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
     
-    #create HMAC object
     h = hmac.HMAC(HMACKey, hashes.SHA256(), backend=default_backend())
+    h.update(C)
+    verifyTag = h.finalize()
     
-    C = h.update(message)
-    h.finalize()
+    if verifyTag != tag:
+        raise Exception("Tags do not align")
     
-    tag = h ( k || h ( k ||m) ) 
+    message = MyDecrypt(C, IV, EncKey)
     
-    return C, IV, tag
+    return message
 
-def MyFileEncryptMAC(filepath):
+def MyFileDecryptMAC(originalfilepath, HMACKey):
+    #getting file name and extension
+    filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
+    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
     
-    #encrypt file first
-    C, IV, Enckey, ext = MyFileEncrypt(filepath)
+    jsonFile = filename + ".json"
     
-    #create HMAC Key
-    HMACKeyLength = 32
-    HMACKey = os.urandom(HMACKeyLength)
-    
-    #then HMAC
-    C, IV, tag = MyEncryptMAC(C, Enckey, HMACKey)
-    
-    return C, IV, tag, EncKey, HMACKey, ext
+    #open file to decrypt
+    with open(jsonFile) as decryptFile:
+        data = json.load(decryptFile)
+        decryptFile.close()
 
-def MyDecryptMAC():
-    
-    #create HMAC object
-    h = hmac.HMAC( hashes.SHA256(), backend=default_backend())
-    
-    C = h.update(message)
-    h.finalize()
-    
-    return C, IV, tag
+    #getting data from dictionary
+    C = (data['C']).encode('cp437')
+    IV = (data['IV']).encode('cp437')
+    tag = (data['tag']).encode('cp437')
+    EncKey = (data['EncKey']).encode('cp437')
 
-def MyFileDecryptMAC():
+message = MyDecryptMAC(C, IV, tag, HMACKey, EncKey)
+
+    #write recovered data to file
+    recoveredFile = open(originalfilepath, "wb")
+    recoveredFile.write(message)
+    recoveredFile.close()
     
-    #encrypt file first
-    C, IV, key, ext = MyFileEncrypt(filepath)
+    #remove json file
+    os.remove(jsonFile)
     
-    #create HMAC Key
-    HMACKeyLength = 32
-    HMACKey = os.urandom(HMACKeyLength)
-    
-    
-    C, IV, tag = MyEncryptMAC(C, key, HMACKey)
-    
-    return C, IV, tag, EncKey, HMACKey, ext
+    return message
+
+#------------------------------------------------------------------------------
 
 def main():
-    testFile = "test.txt"
+    #testFile = "test.txt"
+    testFile = "test_photo.jpg"
     
-   #C, IV, key, ext = MyFileEncrypt(testFile)
-   #MyFileDecrypt(testFile, IV, key, ext)
-   
-   ###
+    #C, IV, key, ext = MyFileEncrypt(testFile)
+    #input("File encrypted! Press enter to decrypt.")
     
-main() /////
+    #MyFileDecrypt(testFile, IV, key, ext)
+    #print("\nFile decrypted!")
+    
+    C, IV, tag, EncKey, HMACKey, ext = MyFileEncryptMAC(testFile)
+    input("File encrypted! Press enter to decrypt.")
+    
+    MyFileDecryptMAC(testFile, HMACKey)
+    print("\nFile decrypted!")
+main()
