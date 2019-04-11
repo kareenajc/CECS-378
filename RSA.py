@@ -1,15 +1,10 @@
-import os
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding, asymmetric
+import os,constants
+from cryptography.hazmat.asymmetric rsa
+from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes, hmac, serialization
-import json
 
+def doessKeyOairExist(file_path):
 
-CONST_RSA_KEY_SIZE = 2048
-CONST_INDENT_SIZE = 4
-CONST_PADDING_BITS = 128
-constants = 32
 def MyEncrypt(message, key):
     #checking key length
     if(len(key) < 32):
@@ -58,8 +53,7 @@ def MyFileEncrypt(filepath):
     file.close()
     
     return C, IV, key, ext
-
-
+<<<<<<< HEAD
 
 def MyEncryptMAC(message, EncKey, HMACKey):
     
@@ -73,7 +67,21 @@ def MyEncryptMAC(message, EncKey, HMACKey):
     
     return C, IV, tag
 
+=======
 
+def MyEncryptMAC(message, EncKey, HMACKey):
+    
+    #get ciphertext and IV
+    C, IV = MyEncrypt(message, EncKey)
+    
+    #create HMAC object to make tag
+    h = hmac.HMAC(HMACKey, hashes.SHA256(), backend=default_backend())
+    h.update(C)
+    tag = h.finalize()
+    
+    return C, IV, tag
+
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
 def MyFileEncryptMAC(filepath):
     
     #create Keys
@@ -108,58 +116,17 @@ def MyFileEncryptMAC(filepath):
     with open(filenameJSON, "w") as outfile:
         json.dump(encData, outfile)
         outfile.close()
+<<<<<<< HEAD
     
+=======
         
-
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     #delete original file
     os.remove(filepath)
     
     return C, IV, tag, EncKey, HMACKey, ext
-#--------------
-    # RSA Encrypt using AES CBC 256 Encryption with HMAC 
-def myRSAEncrypt(filepath, RSA_Publickey_filepath):
 
-	(C, IV, tag, EncKey, HMACKey, ext) = MyFileEncryptMAC(filepath)
-	
-	key = EncKey + HMACKey
-
-	with open(RSA_Publickey_filepath, 'rb') as key_file:
-		public_key = serialization.load_pem_public_key(
-			key_file.read(),
-			backend = default_backend()
-			)
-
-		RSACipher = public_key.encrypt(
-			key,
-			asymmetric.padding.OAEP(
-				mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
-				algorithm=hashes.SHA256(),
-				label=None
-				)
-			)
-		key_file.close()
-
-	return (RSACipher, C, IV, tag, ext) 
-   
-
-		
-
-# AES requires plain text and ciphertext to be a multiple of 16
-# We pad it so that the message is a multiple of the IV, 16
-def addPadding(encoded):
-	
-	# We pad it with 128 bits or 16 bytes
-	padder = padding.PKCS7(constants.CONST_PADDING_BITS).padder()
-
-	# update() pads the encoded message
-	padded_encoded = padder.update(encoded)
-
-	# .finalize () Returns the remainder of the data.
-	padded_encoded += padder.finalize()
-	return padded_encoded  
-   
-   
-
+#------------------------------------------------------------------------------
 
 def MyDecrypt(C, IV, key):
     #make cipher
@@ -171,9 +138,11 @@ def MyDecrypt(C, IV, key):
     
     #decrypt ciphertext
     plaintext_padded = decryptor.update(C) + decryptor.finalize()
-
+<<<<<<< HEAD
     
+=======
 
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     #unpad message
     unpadder = padding.PKCS7(128).unpadder()
     plaintext = unpadder.update(plaintext_padded) + unpadder.finalize()
@@ -181,26 +150,32 @@ def MyDecrypt(C, IV, key):
     return plaintext
 
 def MyFileDecrypt(filepath, IV, key, ext):
-
+<<<<<<< HEAD
     #getting file name and extension
-
+=======
      #getting file name and extension
-
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     filename_ext = os.path.basename(filepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
     
     file = open(filepath, "rb")
     C = file.read()
     file.close()
-
+<<<<<<< HEAD
     
+=======
 
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     message = MyDecrypt(C, IV, key)
     
     writefile = open(filepath, "wb")
     writefile.write(message)
     writefile.close()
+<<<<<<< HEAD
+    
+=======
 
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
     return message, IV, key
 
 def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
@@ -217,7 +192,7 @@ def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
     return message
 
 def MyFileDecryptMAC(originalfilepath, HMACKey):
-
+<<<<<<< HEAD
     #getting file name and extension
     filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
@@ -234,9 +209,10 @@ def MyFileDecryptMAC(originalfilepath, HMACKey):
     IV = (data['IV']).encode('cp437')
     tag = (data['tag']).encode('cp437')
     EncKey = (data['EncKey']).encode('cp437')
-    message = MyDecryptMAC(C, IV, tag, HMACKey, EncKey)
-    
-     #write recovered data to file
+
+message = MyDecryptMAC(C, IV, tag, HMACKey, EncKey)
+
+    #write recovered data to file
     recoveredFile = open(originalfilepath, "wb")
     recoveredFile.write(message)
     recoveredFile.close()
@@ -246,7 +222,7 @@ def MyFileDecryptMAC(originalfilepath, HMACKey):
     
     return message
 
-
+=======
      #getting file name and extension
     filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
     filename, ext = os.path.splitext(filename_ext) #separates file name and extension
@@ -276,7 +252,7 @@ def MyFileDecryptMAC(originalfilepath, HMACKey):
 
     return message
 
-
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
 #------------------------------------------------------------------------------
 
 def main():
@@ -294,6 +270,8 @@ def main():
     
     MyFileDecryptMAC(testFile, HMACKey)
     print("\nFile decrypted!")
-
+<<<<<<< HEAD
 main()
-
+=======
+main()
+>>>>>>> ecd2ef560e89dfc8f5b5831ceb6c2b3e880d5c12
