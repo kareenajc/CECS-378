@@ -1,16 +1,20 @@
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding        #packages
+from cryptography.hazmat.primitives import padding, asymmetric       #packages
 from cryptography.hazmat.backends import default_backend   
-from cryptography.hazmat.primitives import hashes, hmac
+from cryptography.hazmat.primitives import hashes,  serialization
 
 
-
+CONST_RSA_KEY_SIZE = 2048
+CONST_INDENT_SIZE = 4
+CONST_PADDING_BITS = 128
+constants = 32
 #Generate a 16 Bytes IV, and encrypt the message using the key and IV in CBC mode (AES).
 #Return an error if the len(key) < 32, The key, 32 bytes= 256 bits.
 #This function takes in a message,the user wants to encrypt along with a randomly
 #generated key. Returns an encrypted message and a randomly generated IV
 
+# Encrypts a message using a random key generated from the OS
 def MyEncrypt(message, key):
     
     #checking key length, must be 32 bytes
@@ -20,8 +24,8 @@ def MyEncrypt(message, key):
         message = message.encode()
     except:
         pass
-   
-    IVLength = 16      #intialize 16 byte pseudo random IV  generate in os 
+   # Creates a random string of 16 bytes
+    IVLength = 16      
     IV = os.urandom(IVLength)  
     backend = default_backend()
     
@@ -45,7 +49,8 @@ def MyEncrypt(message, key):
 
 
 
-#This method takes in a filepath of an image that want to encrypt
+    #This method takes in a filepath of an image that want to encrypt
+    # Given a file within the same working directory it will encrypt it
 def MyFileEncrypt(filepath):
     #generating a random 32 (pseudorandom)bit key
     keylength = 32
@@ -71,9 +76,55 @@ def MyFileEncrypt(filepath):
     filename, ext = os.path.splitext(filename_ext) 
     
     return C, IV, key, ext
+#------
+      # RSA Encrypt using AES CBC 256 Encryption with HMAC 
+def myRSAEncrypt(filepath, RSA_Publickey_filepath):
 
+	(C, IV, tag, EncKey, HMACKey, ext) = MyFileEncryptMAC(filepath)
+	
+	key = EncKey + HMACKey
+
+	with open(RSA_Publickey_filepath, 'rb') as key_file:
+		public_key = serialization.load_pem_public_key(
+			key_file.read(),
+			backend = default_backend()
+			)
+
+		RSACipher = public_key.encrypt(
+			key,
+			asymmetric.padding.OAEP(
+				mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
+				algorithm=hashes.SHA256(),
+				label=None
+				)
+			)
+		key_file.close()
+
+	return (RSACipher, C, IV, tag, ext) 
+   
+
+		
+
+# AES requires plain text and ciphertext to be a multiple of 16
+# We pad it so that the message is a multiple of the IV, 16
+def addPadding(encoded):
+	
+	# We pad it with 128 bits or 16 bytes
+	padder = padding.PKCS7(constants.CONST_PADDING_BITS).padder()
+
+	# update() pads the encoded message
+	padded_encoded = padder.update(encoded)
+
+	# .finalize () Returns the remainder of the data.
+	padded_encoded += padder.finalize()
+	return padded_encoded  
+   
+   
+#-----------
 
     #return message, IV, key
+    # Do not use the same key twice
+    # HMAC key should equal length to the digest_size
     
 def MyEncryptMAC(message, EncKey, HMACKey):
         
@@ -123,6 +174,8 @@ def MyFileEncryptMAC(filepath): # call to encrypt file with HMAC
     file.close()
 
     return C, IV, tag, EncKey, HMACKey, ext
+
+
 
 def MyDecrypt(C, IV, key):
     #make cipher, Seting cipher to AES, CSC with backend default
@@ -193,8 +246,10 @@ def MyFileDecryptMAC(filepath, C, IV , tag, EncKey, HMACKey, ext):
     
     
 def main():
-   testFile = "pic2.png"
-    
+   testFile = "test.png"
+   #os.random(testFile = "test.png") 
+   #testFile.json put ib Cipher
+   
    C, IV, tag, EncKey, HMACKey, ext = MyFileEncryptMAC(testFile)
    input("File encrypted! Press enter to decrypt.")
     
