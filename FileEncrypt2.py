@@ -1,6 +1,7 @@
 import os
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding, asymmetric
+from cryptography.hazmat.primitives import padding
+#from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, hmac, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -18,6 +19,17 @@ PUBLIC_EXPONENT = 65537
 RSA_PUBLIC_KEY_PATH = ".\RSApublickey.pem"
 RSA_PRIVATE_KEY_PATH = ".\RSAprivatekey.pem"
 
+
+def separateFileName(filepath):
+    filename_ext = os.path.basename(filepath) #gets file name with extension from path
+    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    return filename, ext
+
+def writeJSON(dictionary, writeFile):
+    #write json data to file
+    with open(writeFile, "w") as outfile:
+        json.dump(dictionary, outfile)
+        outfile.close()
 
 def MyEncrypt(message, key):
     #checking key length
@@ -49,8 +61,7 @@ def MyFileEncrypt(filepath):
     key = os.urandom(KEY_LENGTH)
     
     #getting file name and extension
-    filename_ext = os.path.basename(filepath) #gets file name with extension from path
-    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    filename, ext = separateFileName(filepath)
     
     #reading file
     file = open(filepath, "rb")
@@ -99,28 +110,21 @@ def MyFileEncryptMAC(filepath):
     file.close()
     
     #getting file name and extension
-    filename_ext = os.path.basename(filepath) #gets file name with extension from path
-    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
-    
+    filename, ext = separateFileName(filepath)
     #encrypt & MAC
     C, IV, tag = MyEncryptMAC(m, EncKey, HMACKey)
     
-    '''Not used for RSA
+    '''Not used for RSA'''
     #storing values
-    encData = {"RSACipher": RSACipher.decode('cp437'),"C": C.decode('cp437'), "IV": IV.decode('cp437'),  "ext": ext, "tag": tag.decode('cp437')}
+    encData = {"C": C.decode('cp437'), "EncKey": EncKey.decode('cp437'), "IV": IV.decode('cp437'),  "ext": ext, "tag": tag.decode('cp437')}
     
-    #create and write to json
     filenameJSON = filename + ".json"
     
-    #write json data to file
-    with open(filenameJSON, "w") as outfile:
-        json.dump(encData, outfile)
-        outfile.close()
+    writeJSON(encData, filenameJSON)
     
     #delete original file
     os.remove(filepath)
-    '''
-    
+
     return C, IV, tag, EncKey, HMACKey, ext
 
 def CheckRSAKeys():
@@ -154,32 +158,47 @@ def CheckRSAKeys():
         
         with open(RSA_PUBLIC_KEY_PATH, "wb") as publicKeyFile:
             publicKeyFile.write(publicpem)
-            
+        
 # RSA Encrypt using AES CBC 256 Encryption with HMAC 
 def MyRSAEncrypt(filepath, RSA_Publickey_filepath):
+    (C, IV, tag, EncKey, HMACKey, ext) = MyFileEncryptMAC(filepath)
+    
+    key = EncKey + HMACKey
+    
+    #loads public key
+    with open(RSA_Publickey_filepath, 'rb') as key_file:
+        public_key = serialization.load_pem_public_key(
+                key_file.read(),
+                backend = default_backend()
+        )
+        
+        #encrypts key to make RSACipher
+        RSACipher = public_key.encrypt(
+                key,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+        )
+        key_file.write(RSACipher)
+        key_file.close()
+        
+        
+        '''
+        encData = {"C": C.decode('cp437'), "RSACipher": RSACipher.decode('cp437'),"EncKey": EncKey.decode('cp437'), "IV": IV.decode('cp437'),  "ext": ext, "tag": tag.decode('cp437')}
+    
+        filename, ext = separateFileName(filepath)
+        
+        filenameJSON = filename + ".json"
+    
+        writeJSON(encData, filenameJSON)
+    
+        #delete original file
+        os.remove(filepath)
+        '''
 
-	(C, IV, tag, EncKey, HMACKey, ext) = MyFileEncryptMAC(filepath)
-	
-	key = EncKey + HMACKey
-
-	with open(RSA_Publickey_filepath, 'rb') as key_file:
-		public_key = serialization.load_pem_public_key(
-			key_file.read(),
-			backend = default_backend()
-			)
-
-		RSACipher = public_key.encrypt(
-			key,
-			asymmetric.padding.OAEP(
-				mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
-				algorithm=hashes.SHA256(),
-				label=None
-				)
-			)
-		key_file.close()
-
-	return (RSACipher, C, IV, tag, ext) 
-   
+    return (RSACipher, C, IV, tag, ext) 
 
 # AES requires plain text and ciphertext to be a multiple of 16
 # We pad it so that the message is a multiple of the IV, 16
@@ -213,10 +232,8 @@ def MyDecrypt(C, IV, key):
     return plaintext
 
 def MyFileDecrypt(filepath, IV, key, ext):
-
-     #getting file name and extension
-    filename_ext = os.path.basename(filepath) #gets file name with extension from path
-    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    #getting file name and extension
+    fileanme, ext = separateFileName(filepath)
     
     file = open(filepath, "rb")
     C = file.read()
@@ -246,8 +263,7 @@ def MyDecryptMAC(C, IV, tag, HMACKey, EncKey):
 def MyFileDecryptMAC(originalfilepath, HMACKey):
 
     #getting file name and extension
-    filename_ext = os.path.basename(originalfilepath) #gets file name with extension from path
-    filename, ext = os.path.splitext(filename_ext) #separates file name and extension
+    filename, ext = separateFileName(originalfilepath)
     
     jsonFile = filename + ".json"
     
@@ -273,28 +289,31 @@ def MyFileDecryptMAC(originalfilepath, HMACKey):
     
     return message
 
-def MyRSADecrypt(RSACipher, C, IV, tag, ext, RSA_Privatekey_filepath):
-    (C, IV, tag, EncKey, HMACKey, ext) = MyFileEncryptMAC(filepath)
-	
-    key = EncKey + HMACKey
-
-    with open(RSA_Publickey_filepath, 'rb') as key_file:
-        public_key = serialization.load_pem_public_key(
-            _file.read(),
+def MyRSADecrypt(filepath, RSACipher, C, IV, tag, ext, RSA_Privatekey_filepath):
+    #load private key file
+    with open("RSA_Privatekey_filepath", "rb") as key_file:
+        private_key = serialization.load_pem_private_key(
+            key_file.read(),
+            password = None,
             backend = default_backend()
-            )
-
-        RSACipher = public_key.encrypt(
-            key,
-            asymmetric.padding.OAEP(
-                mgf=asymmetric.padding.MGF1(algorithm=hashes.SHA256()),
-                algorithm=hashes.SHA256(),
-                label=None
-    				)
-    			)
+        )
+    
+    
+        plaintext = private_key.decrypt(
+            RSACipher,
+            padding.OAEP(
+                mgf = padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm = hashes.SHA256(),
+                label = None
+                )
+        )
         key_file.close()
-
-    return (RSACipher, C, IV, tag, ext)
+        
+    EncKey = plaintext[0:31]
+    HMACKey = plaintext[32:]
+    
+    message = MyFileDecryptMAC(filepath, HMACKey)
+    return message
 
 
 def main():
@@ -316,12 +335,12 @@ def main():
     #print("\nFile decrypted!")
 
     '''RSA'''
-    CheckRSAKeys()
+    #CheckRSAKeys()
     
-    #RSACipher, C, IV, tag, ext = MyRSAEncrypt(testFile, RSA_PUBLIC_KEY_PATH)
-    #input("File encrypted! Press enter to decrypt.")
-    
-    #MyRSADecrypt(RSACipher, C, IV, tag, ext, RSAKeyFile)
-    #print("\nFile decrypted!")
+    RSACipher, C, IV, tag, ext = MyRSAEncrypt(testFile, RSA_PUBLIC_KEY_PATH)
+    input("File encrypted! Press enter to decrypt.")
+
+    MyRSADecrypt(testFile, RSACipher, C, IV, tag, ext, RSA_PRIVATE_KEY_PATH)
+    print("\nFile decrypted!")
     
 main()
